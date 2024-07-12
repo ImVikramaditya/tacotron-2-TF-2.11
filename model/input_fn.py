@@ -1,5 +1,5 @@
 import tensorflow as tf
-from tensorflow.contrib import ffmpeg
+import numpy as np
 
 # NOTE: Librosa is another good library for processing audio but
 # I have been unable to use it with tf.data structure
@@ -13,7 +13,7 @@ def parse_csv_line(line, vocabulary, config):
     # Which means we assume every row of tensor (corresponding to every line in file) has
     # multiple columns delimited by the specified delimiter
     # The output we get is a tensor (NUM_LINES, NUM_COLUMNS)
-    fields = tf.decode_csv(line, config['data']['csv_column_defaults'])
+    fields = tf.io.decode_csv(records=line, record_defaults=config['data']['csv_column_defaults'])
 
     # Note that INPUT_CSV_COLUMNS is (1 x NUM_COLUMNS) while fields is (NUM_LINES, NUM_COLUMNS)
     # So zipping gives NUM_COLUMNS tuples (COLUMN_NAME, (NUM_LINES x 1)), from which we create a dict
@@ -22,7 +22,7 @@ def parse_csv_line(line, vocabulary, config):
     # Split string into characters
     # IMPORTANT NOTE: tf.string_split returns a SparseTensor of rank 2,
     # the strings split according to the delimiter. Read more about how SparseTensors are represented
-    text = tf.string_split([features[config['data']['csv_columns'][0]]], delimiter="")
+    text = tf.strings.split([features[config['data']['csv_columns'][0]]], sep="", maxsplit=-1).to_sparse()
 
     # Once we have character SparseTensors, we need to encode the characters as numbers
     # Traditional way is to have one hot encoding or a one hot encoding + embedding matrix
@@ -38,12 +38,12 @@ def parse_csv_line(line, vocabulary, config):
     # Also note that embedding layer will expect indexes of dtype tf.int64
     # Also, the vocabulary dict stores values as int64
 
-    text_idx = tf.SparseTensor(text.indices,
+    text_idx = tf.sparse.SparseTensor(text.indices,
                                tf.map_fn(vocabulary.text2idx, text.values, dtype=tf.int64),
                                text.dense_shape)
 
     # We have to convert this SparseTensor back to dense to support future operations
-    text_idx = tf.sparse_tensor_to_dense(text_idx) # Shape - (1, T)
+    text_idx = tf.sparse.to_dense(text_idx) # Shape - (1, T)
     text_idx = tf.squeeze(text_idx) # Shape - (T,)
 
     # We also require lengths of every input sequence as inputs to model
@@ -60,27 +60,26 @@ def parse_csv_line(line, vocabulary, config):
     # This part is standard code for obtaining MFCC from audio as given in TF documentation
     # You can read more about what are fourier transform, spectrograms and MFCCs to get an idea
 
-    audio_binary = tf.read_file(features[config['data']['csv_columns'][1]])
+    audio_binary = tf.io.read_file(features[config['data']['csv_columns'][1]])
 
     # Sample rate used in paper is 16000, channel count should be 1 for tacotron 2
     # STFT configuration values specified in paper
-    waveform = ffmpeg.decode_audio(audio_binary, file_format='wav',
-                                   samples_per_second=config['data']['wav_sample_rate'],
-                                   channel_count=1)
+    waveform,sample_rate = tf.audio.decode_wav(audio_binary,
+                                   desired_channels=1)
 
-    stfts = tf.contrib.signal.stft(tf.transpose(waveform),
-                                   frame_length=config['data']['frame_length'],
-                                   frame_step=config['data']['frame_step'],
-                                   fft_length=config['data']['fft_length'])
+    stfts = tf.signal.stft(waveform,
+                            frame_length=config['data']['frame_length'],
+                            frame_step=config['data']['frame_step'],
+                            fft_length=config['data']['fft_length'])
     magnitude_spectrograms = tf.abs(stfts)
-    num_spectrogram_bins = magnitude_spectrograms.shape[-1].value
+    num_spectrogram_bins = magnitude_spectrograms.shape.as_list()[-1]
 
     # These are to be set according to human speech. Values specified in the paper
     lower_edge_hertz, upper_edge_hertz, num_mel_bins = config['data']['lower_edge_hertz'], \
                                                        config['data']['upper_edge_hertz'], \
                                                        config['data']['num_mel_bins']
 
-    linear_to_mel_weight_matrix = tf.contrib.signal.linear_to_mel_weight_matrix(
+    linear_to_mel_weight_matrix = tf.signal.linear_to_mel_weight_matrix(
         num_mel_bins, num_spectrogram_bins, config['data']['wav_sample_rate'], lower_edge_hertz,upper_edge_hertz)
     mel_spectrograms = tf.tensordot(magnitude_spectrograms, linear_to_mel_weight_matrix, 1)
 
@@ -131,5 +130,5 @@ def train_input_fn(vocabulary, config):
         'target_inputs': [None, config['data']['num_mel_bins']],
         'debug_data': [None, None]
     })
-    iterator = dataset.make_one_shot_iterator()
-    return iterator.get_next()
+    iterator = iter(dataset)
+    return next(iterator)
