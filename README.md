@@ -1,3 +1,27 @@
+This project started as an attempt to clone the voice of late SP Balasubramaniam as part of my graduation project in 2022. While there are numerous models, both open-source and paid, for speech synthesis in English, we couldn't find pretrained models for Telugu. At that stage, we had three options for my project:
+1. Transfer Learning - Use Tacotron-2 trained on English corpus and train it further on Telugu corpus we prepared from SP balasubramaniam's audio clips to clone his voice for Telugu speech. However, we quickly realised this wouldn't work as well as we would have expected since the pretrained English does not capture the diction and the nuances of Telugu.
+2. Transfer Learning - Use Tacotron-2 trained on English corpus and train it further on English corpus we prepared from SP Balasubramaniam's audio clips to clone his voice for English speech. We came across multiple works which used Tacotromn-2 to clone personalities such as Donald Trump and Martin Luther King Jr. This was easily achievable but that lead us to realise how there is no TTS for our language of Telugu. Even the existing models use English embeddings and do not produce natural speech.
+3. Train a model from base step on Telugu Corpus. While our college management and professor advised us on how training a model from base would be beyond the scope of a graduation project, we were suggested to choose this option given the potential learning curve in it for us.
+
+
+In an attempt to create a TTS system for Telugu, an Indian language, as part of my graduation project in 2022, I stumbled on Tacotron-2 and the master branch of this repo. While the project didn't reach the required alignment and we are a long way off from synthesizing natural-sounding speech in Telugu (mostly because of lack of quality audio and transcripts when we started this in 2022), it was still a great opportunity to understand the implementation of a Deep Learning Architecture using tensorflow. 
+
+In addition to the training modules present in the repo, we implemented synthesise/inference modules to accept text and generate audio output for the same.
+
+The project also explored making various changes to the architecture of Tacotron-2 to adapt it to Telugu. The language of Telugu is phoenitic i.e., the words are pronunced the way they are written. This is unlike languages such as English and French which are rule-based.
+For example, 
+1. I 'read' books
+2. I 'read' The Origin by Dan Brown.
+3. I am now 'reading' The 'Red' Rising.
+
+The pronunciation of the word 'read' in 1 and 2 differs but pronunciation of 'Read' and 'Red' from 2 and 3 is same. This introduces quite a bit of complexity and requires larger dataset for any model to pick up on these subtle variations. The same is not the case with Telugu.
+
+Unfortunately, I lost the source code and this repo is an attempt to redo the project after migrating the existing code to Tensorflow-2.11. The synthesize file will be updated shortly.
+
+References:
+1. Documentation and implementation of tacotron 2 in https://github.com/Rayhane-mamah/Tacotron-2 also helped me understand the paper.
+2. Tensorflow Documentation. 
+
 # Tacotron 2 Explained
 
 This repository is meant to teach the intricacies of writing advanced Recurrent Neural Networks in Tensorflow. The code is used as a guide, in weekly Deep Learning meetings at Ohio State University, for teaching -
